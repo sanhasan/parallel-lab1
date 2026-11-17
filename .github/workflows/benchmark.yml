@@ -1,0 +1,33 @@
+name: Tests and benchmark
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  correctness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run tests
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Wpedantic -pthread \
+            baseline.cpp parallel_quicksort.cpp tests.cpp -o tests
+          ./tests
+
+  speedup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require at least 3x speedup
+        env:
+          SIZE: "100000000"
+          RUNS: "5"
+          MIN_SPEEDUP: "3"
+        run: ./benchmark.sh
