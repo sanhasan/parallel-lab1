@@ -36,10 +36,36 @@ jobs:
           repository: cmuparlay/parlaylib
           ref: 51017699dcc421f80479cdb238d3092233ad0d26
           path: parlaylib
-      - name: Require at least 3x speedup
+      - name: Run benchmark and collect results
         env:
           SIZE: "100000000"
           RUNS: "5"
           THREADS: "4"
           MIN_SPEEDUP: "3"
-        run: ./benchmark.sh
+        run: |
+          set +e
+          stdbuf -oL -eL ./benchmark.sh 2>&1 | tee benchmark-results.txt
+          benchmark_status=${PIPESTATUS[0]}
+          set -e
+
+          {
+            echo "## Quicksort benchmark"
+            echo
+            echo "- Elements: ${SIZE}"
+            echo "- Runs: ${RUNS}"
+            echo "- Threads: ${THREADS}"
+            echo "- Required speedup: ${MIN_SPEEDUP}x"
+            echo
+            echo '```text'
+            cat benchmark-results.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$benchmark_status"
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark-results.txt
