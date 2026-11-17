@@ -10,7 +10,6 @@
 using namespace std;
 
 static constexpr size_t SEQ_BLOCK = 1 << 17;
-static constexpr size_t PART_BLOCK = 1 << 13;
 
 struct SortedRange {
     size_t left;
@@ -36,7 +35,7 @@ vector<SortedRange> quick_sort_impl(
     const int pivot = utils::median(input[left], input[(left + right) / 2], input[right - 1]);
 
     utils::PartitionResult partition =
-        utils::partition(input, output, left, right, pivot, PART_BLOCK);
+        utils::partition(input, output, left, right, pivot);
 
     if (partition.total_equal == n) {
         return {{left, right, &input}};

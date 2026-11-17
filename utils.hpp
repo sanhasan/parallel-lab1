@@ -20,6 +20,8 @@ inline int median(int a, int b, int c) {
     return a;
 }
 
+static constexpr size_t BLOCK_SIZE = 1 << 15;
+
 struct BlockInfo {
     size_t less;
     size_t equal;
@@ -36,17 +38,16 @@ inline PartitionResult partition(
     vector<int>& output,
     size_t left,
     size_t right,
-    int pivot,
-    size_t block_size
+    int pivot
 ) {
     const size_t n = right - left;
-    const size_t blocks = (n + block_size - 1) / block_size;
+    const size_t blocks = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
     vector<BlockInfo> block_info(blocks);
     PartitionResult result{0, 0};
 
     parlay::parallel_for(0, blocks, [&](size_t b) {
-        const size_t begin = left + b * block_size;
-        const size_t end = min(begin + block_size, right);
+        const size_t begin = left + b * BLOCK_SIZE;
+        const size_t end = min(begin + BLOCK_SIZE, right);
 
         size_t less = 0;
         size_t equal = 0;
@@ -85,8 +86,8 @@ inline PartitionResult partition(
     }
 
     parlay::parallel_for(0, blocks, [&](size_t b) {
-        const size_t begin = left + b * block_size;
-        const size_t end = min(begin + block_size, right);
+        const size_t begin = left + b * BLOCK_SIZE;
+        const size_t end = min(begin + BLOCK_SIZE, right);
         size_t l = left + block_info[b].less;
         size_t e = left + block_info[b].equal;
         size_t g = left + block_info[b].greater;
