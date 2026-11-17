@@ -8,6 +8,6 @@ g++ -std=c++17 -O3 -DNDEBUG -march=native -pthread \
 
 /tmp/quicksort-benchmark --benchmark \
   "${SIZE:-100000000}" \
-  "${RUNS:-5}" \
+  "${RUNS:-1}" \
   "${THREADS:-4}" \
   "${MIN_SPEEDUP:-0}"

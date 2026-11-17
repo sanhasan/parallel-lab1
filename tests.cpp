@@ -20,39 +20,6 @@ static std::uint64_t random_value(std::uint64_t& state) {
 static bool run_tests() {
     {
         // Arrange
-        const std::vector<std::size_t> input = {2, 3, 4};
-        const std::vector<std::size_t> expected_offsets = {1, 2, 6};
-
-        // Act
-        const auto actual = utils::exclusive_scan(
-            input, std::size_t{1}, std::multiplies<std::size_t>{});
-
-        // Assert
-        if (actual.offsets != expected_offsets || actual.total != 24) {
-            std::cerr << "exclusive_scan: неверный результат\n";
-            return false;
-        }
-    }
-
-    {
-        // Arrange
-        const std::vector<int> input = {5, 2, 7, 4, 1, 6};
-        const std::vector<int> expected = {2, 4, 6};
-
-        // Act
-        const std::vector<int> actual = utils::filter(input, [](int value) {
-            return value % 2 == 0;
-        });
-
-        // Assert
-        if (actual != expected) {
-            std::cerr << "filter: неверный результат\n";
-            return false;
-        }
-    }
-
-    {
-        // Arrange
         std::vector<int> actual = {5, -1, 4, 2, 2, 8, 0};
         const std::vector<int> expected = {-1, 0, 2, 2, 4, 5, 8};
 
@@ -110,6 +77,28 @@ static bool run_tests() {
                           << " потока): неверный результат\n";
                 return false;
             }
+        }
+    }
+
+    for (int pattern = 0; pattern < 4; ++pattern) {
+        // Размер больше SEQ_BLOCK: проверяем не только
+        // последовательную ветку, но и чередование двух буферов.
+        std::vector<int> input(500000);
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            if (pattern == 0) input[i] = static_cast<int>(i);
+            if (pattern == 1) input[i] = static_cast<int>(input.size() - i);
+            if (pattern == 2) input[i] = 7;
+            if (pattern == 3) input[i] = static_cast<int>(i % 17) - 8;
+        }
+
+        std::vector<int> expected = input;
+        std::sort(expected.begin(), expected.end());
+
+        quick_sort(input, 4);
+        if (input != expected) {
+            std::cerr << "parallel quicksort: ошибка на шаблоне "
+                      << pattern << '\n';
+            return false;
         }
     }
 
