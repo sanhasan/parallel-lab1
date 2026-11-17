@@ -1,18 +1,11 @@
+#include "utils.hpp"
+
 #include <algorithm>
 #include <vector>
 
 using namespace std;
 
 static const int BLOCK = 20;
-
-static int median(int a, int b, int c) {
-    if (min(a, b) <= c && c <= max(a, b)) {
-        return c;
-    } else if (min(a, c) <= b && b <= max(a, c)) {
-        return b;
-    }
-    return a;
-}
 
 static void insertion_sort(vector<int>& data, int begin, int end) {
     for (int i = begin + 1; i < end; ++i) {
@@ -28,7 +21,8 @@ static void insertion_sort(vector<int>& data, int begin, int end) {
 }
 
 static pair<int, int> partition(vector<int>& data, int begin, int end) {
-    int pivot = median(data[begin], data[begin + (end - begin) / 2], data[end - 1]);
+    int mid = (begin + end) / 2;
+    int pivot = utils::median(data[begin], data[mid], data[end - 1]);
     int curr = begin;
 
     while (curr < end) {
