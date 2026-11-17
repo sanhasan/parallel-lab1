@@ -14,10 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: cmuparlay/parlaylib
+          ref: 51017699dcc421f80479cdb238d3092233ad0d26
+          path: parlaylib
       - name: Build and run tests
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra -Wpedantic -pthread \
-            baseline.cpp parallel_quicksort.cpp tests.cpp -o tests
+            -Iparlaylib/include baseline.cpp parallel_quicksort.cpp tests.cpp \
+            -o tests
           ./tests
 
   speedup:
@@ -25,9 +31,15 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: cmuparlay/parlaylib
+          ref: 51017699dcc421f80479cdb238d3092233ad0d26
+          path: parlaylib
       - name: Require at least 3x speedup
         env:
           SIZE: "100000000"
           RUNS: "5"
+          THREADS: "4"
           MIN_SPEEDUP: "3"
         run: ./benchmark.sh

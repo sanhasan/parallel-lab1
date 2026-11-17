@@ -5,12 +5,12 @@
 
 using namespace std;
 
-static const int BLOCK = 20;
+static constexpr size_t BLOCK = 20;
 
-static void insertion_sort(vector<int>& data, int begin, int end) {
-    for (int i = begin + 1; i < end; ++i) {
+static void insertion_sort(vector<int>& data, size_t begin, size_t end) {
+    for (size_t i = begin + 1; i < end; ++i) {
         int value = data[i];
-        int j = i;
+        size_t j = i;
 
         while (j > begin && value < data[j - 1]) {
             data[j] = data[j - 1];
@@ -20,10 +20,10 @@ static void insertion_sort(vector<int>& data, int begin, int end) {
     }
 }
 
-static pair<int, int> partition(vector<int>& data, int begin, int end) {
-    int mid = (begin + end) / 2;
+static pair<size_t, size_t> partition(vector<int>& data, size_t begin, size_t end) {
+    size_t mid = begin + (end - begin) / 2;
     int pivot = utils::median(data[begin], data[mid], data[end - 1]);
-    int curr = begin;
+    size_t curr = begin;
 
     while (curr < end) {
         if (data[curr] < pivot) {
@@ -37,12 +37,12 @@ static pair<int, int> partition(vector<int>& data, int begin, int end) {
     return {begin, end};
 }
 
-void quick_sort_seq(vector<int>& data, int begin, int end) {
+void quick_sort_seq(vector<int>& data, size_t begin, size_t end) {
     if (end - begin <= BLOCK) {
         insertion_sort(data, begin, end);
         return;
     }
-    pair<int, int> split = partition(data, begin, end);
+    pair<size_t, size_t> split = partition(data, begin, end);
     quick_sort_seq(data, begin, split.first);
     quick_sort_seq(data, split.second, end);
 }

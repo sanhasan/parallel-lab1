@@ -5,11 +5,11 @@
 
 using namespace std;
 
-static const int BLOCK = 10000;
+static constexpr size_t BLOCK = 1024*8;
 
 void quick_sort_par(vector<int>& data) {
     if (data.size() <= BLOCK) {
-        quick_sort_seq(data, 0, static_cast<int>(data.size()));
+        quick_sort_seq(data, 0, data.size());
         return;
     }
 
