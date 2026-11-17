@@ -11,7 +11,7 @@ using namespace std;
 
 namespace utils {
 
-static constexpr size_t BLOCK = 1024;
+static constexpr size_t BLOCK = 1024*8;
 
 inline int median(int a, int b, int c) {
     if (min(a, b) <= c && c <= max(a, b)) {
@@ -21,22 +21,6 @@ inline int median(int a, int b, int c) {
         return b;
     }
     return a;
-}
-
-template <class Function>
-void parallel_for(size_t begin, size_t end,
-                  const Function& function) {
-    if (end - begin <= BLOCK) {
-        for (size_t i = begin; i < end; ++i) {
-            function(i);
-        }
-        return;
-    }
-
-    size_t mid = (end + begin) / 2;
-    parlay::par_do(
-        [&] { parallel_for(begin, mid, function); },
-        [&] { parallel_for(mid, end, function); });
 }
 
 template <class T>
@@ -110,14 +94,14 @@ ScanResult<T> exclusive_scan(const vector<Value>& values, T zero, const Operatio
 template <class T, class Predicate>
 vector<T> filter(const vector<T>& input, const Predicate& predicate) {
     vector<unsigned char> flags(input.size());
-    parallel_for(0, input.size(), [&](size_t i) {
+    parlay::parallel_for(0, input.size(), [&](size_t i) {
         flags[i] = predicate(input[i]);
     });
 
     ScanResult<size_t> scan = exclusive_scan(flags, size_t{0}, plus<size_t>{});
 
     vector<T> output(scan.total);
-    parallel_for(0, input.size(), [&](size_t i) {
+    parlay::parallel_for(0, input.size(), [&](size_t i) {
         if (flags[i] != 0) {
             output[scan.offsets[i]] = input[i];
         }
