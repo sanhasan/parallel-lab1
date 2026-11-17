@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <vector>
 
 #include <parlay/parallel.h>
@@ -14,12 +15,12 @@ static constexpr size_t SEQ_BLOCK = 1 << 17;
 struct SortedRange {
     size_t left;
     size_t right;
-    vector<int>* storage;
+    int* storage;
 };
 
 vector<SortedRange> quick_sort_impl(
-    vector<int>& input,
-    vector<int>& output,
+    int* input,
+    int* output,
     size_t left,
     size_t right
 ) {
@@ -29,7 +30,7 @@ vector<SortedRange> quick_sort_impl(
         return {};
     } else if (n <= SEQ_BLOCK) {
         quick_sort_seq(input, left, right);
-        return {{left, right, &input}};
+        return {{left, right, input}};
     }
 
     const int pivot = utils::median(input[left], input[(left + right) / 2], input[right - 1]);
@@ -38,7 +39,7 @@ vector<SortedRange> quick_sort_impl(
         utils::partition(input, output, left, right, pivot);
 
     if (partition.total_equal == n) {
-        return {{left, right, &input}};
+        return {{left, right, input}};
     }
 
     vector<SortedRange> left_ranges, right_ranges;
@@ -78,7 +79,7 @@ vector<SortedRange> quick_sort_impl(
     for (const SortedRange& range : left_ranges) {
         append(range);
     }
-    append({middle_begin, middle_end, &output});
+    append({middle_begin, middle_end, output});
     for (const SortedRange& range : right_ranges) {
         append(range);
     }
@@ -87,23 +88,18 @@ vector<SortedRange> quick_sort_impl(
 }
 
 void quick_sort_par(vector<int>& data) {
-    vector<int> out(data.size());
+    unique_ptr<int[]> out(new int[data.size()]);
     vector<SortedRange> ranges =
-        quick_sort_impl(data, out, 0, data.size());
-
-    if (ranges.size() == 1 && ranges[0].storage == &out) {
-        data.swap(out);
-        return;
-    }
+        quick_sort_impl(data.data(), out.get(), 0, data.size());
 
     parlay::parallel_for(0, ranges.size(), [&](size_t r) {
         const SortedRange& range = ranges[r];
-        if (range.storage == &data) {
+        if (range.storage == data.data()) {
             return;
         }
 
         for (size_t i = range.left; i < range.right; ++i) {
-            data[i] = (*range.storage)[i];
+            data[i] = range.storage[i];
         }
     }, 1);
 }

@@ -7,6 +7,7 @@
 
 using namespace std;
 
+void quick_sort_seq(int* data, size_t begin, size_t end);
 void quick_sort_seq(vector<int>& data, size_t begin, size_t end);
 void quick_sort_par(vector<int>& data);
 

@@ -34,8 +34,8 @@ struct PartitionResult {
 };
 
 inline PartitionResult partition(
-    const vector<int>& input,
-    vector<int>& output,
+    const int* input,
+    int* output,
     size_t left,
     size_t right,
     int pivot
