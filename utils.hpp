@@ -20,7 +20,7 @@ inline int median(int a, int b, int c) {
     return a;
 }
 
-static constexpr size_t BLOCK_SIZE = 1 << 15;
+static constexpr size_t BLOCK_SIZE = 1 << 13;
 
 struct BlockInfo {
     size_t less;
@@ -93,12 +93,13 @@ inline PartitionResult partition(
         size_t g = left + block_info[b].greater;
 
         for (size_t i = begin; i < end; ++i) {
-            if (input[i] < pivot) {
-                output[l++] = input[i];
-            } else if (input[i] == pivot) {
-                output[e++] = input[i];
+            const int value = input[i];
+            if (value < pivot) {
+                output[l++] = value;
+            } else if (value == pivot) {
+                output[e++] = value;
             } else {
-                output[g++] = input[i];
+                output[g++] = value;
             }
         }
     }, 1);
