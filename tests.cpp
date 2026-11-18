@@ -7,117 +7,145 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <random>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 using namespace std;
 
-static uint64_t random_value(uint64_t& state) {
-    uint64_t value = (state += 0x9e3779b97f4a7c15ULL);
-    value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
-    return value ^ (value >> 31);
-}
-
-static bool run_tests() {
-    {
-        // Arrange
-        vector<int> actual = {5, -1, 4, 2, 2, 8, 0};
-        const vector<int> expected = {-1, 0, 2, 2, 4, 5, 8};
-
-        // Act: параметр не указан, поэтому должен использоваться baseline.
-        quick_sort(actual);
-
-        // Assert
-        if (actual != expected) {
-            cerr << "baseline quicksort: неверный результат\n";
-            return false;
-        }
-    }
-
-    {
-        // Arrange
-        const vector<int> input = {
-            numeric_limits<int>::max(), 3, 3, -1, 0,
-            numeric_limits<int>::min(), 3, -1};
-        const vector<int> expected = {
-            numeric_limits<int>::min(), -1, -1, 0, 3, 3, 3,
-            numeric_limits<int>::max()};
-
-        for (size_t threads : {size_t{2}, size_t{4}}) {
-            // Act
-            vector<int> actual = input;
-            quick_sort(actual, threads);
-
-            // Assert
-            if (actual != expected) {
-                cerr << "parallel quicksort (" << threads
-                          << " потока): неверный результат\n";
-                return false;
-            }
-        }
-    }
-
-    {
-        // Arrange
-        uint64_t state = 123456789;
-        vector<int> original(100000);
-        for (int& value : original) {
-            value = static_cast<int>(random_value(state));
-        }
-        vector<int> expected = original;
-        sort(expected.begin(), expected.end());  // Эталон только для теста.
-
-        for (size_t threads : {size_t{1}, size_t{4}}) {
-            // Act
-            vector<int> actual = original;
-            quick_sort(actual, threads);
-
-            // Assert
-            if (actual != expected) {
-                cerr << "random quicksort (" << threads
-                          << " потока): неверный результат\n";
-                return false;
-            }
-        }
-    }
-
-    for (int pattern = 0; pattern < 4; ++pattern) {
-        // Размер больше SEQ_BLOCK: проверяем не только
-        // последовательную ветку, но и чередование двух буферов.
-        vector<int> input(500000);
-        for (size_t i = 0; i < input.size(); ++i) {
-            if (pattern == 0) input[i] = static_cast<int>(i);
-            if (pattern == 1) input[i] = static_cast<int>(input.size() - i);
-            if (pattern == 2) input[i] = 7;
-            if (pattern == 3) input[i] = static_cast<int>(i % 17) - 8;
-        }
-
-        vector<int> expected = input;
-        sort(expected.begin(), expected.end());
-
-        quick_sort(input, 4);
-        if (input != expected) {
-            cerr << "parallel quicksort: ошибка на шаблоне "
-                      << pattern << '\n';
-            return false;
-        }
-    }
-
-    return true;
-}
+struct SortTestCase {
+    string_view name;
+    vector<int> input;
+    vector<int> expected;
+};
 
 static bool sorted(const vector<int>& data) {
     for (size_t i = 1; i < data.size(); ++i) {
-        if (data[i] < data[i - 1]) return false;
+        if (data[i] < data[i - 1]) {
+            return false;
+        }
     }
     return true;
 }
 
-static double benchmark_one(size_t size, uint64_t seed, size_t threads) {
+static SortTestCase make_test_case(string_view name, vector<int> input) {
+    vector<int> expected = input;
+    sort(expected.begin(), expected.end());
+    return {name, move(input), move(expected)};
+}
+
+static vector<int> random_data(size_t size, int minimum, int maximum) {
+    random_device device;
+    mt19937 generator(device());
+    uniform_int_distribution<int> distribution(minimum, maximum);
+
     vector<int> data(size);
     for (int& value : data) {
-        value = static_cast<int>(random_value(seed));
+        value = distribution(generator);
+    }
+    return data;
+}
+
+static bool check_sort(const SortTestCase& test, size_t threads) {
+    vector<int> actual = test.input;
+    quick_sort(actual, threads);
+
+    if (!sorted(actual)) {
+        cerr << test.name << " (" << threads
+             << " потока): нарушен порядок элементов\n";
+        return false;
+    }
+    if (actual != test.expected) {
+        cerr << test.name << " (" << threads
+             << " потока): изменился набор элементов\n";
+        return false;
+    }
+    return true;
+}
+
+static bool run_tests() {
+    vector<SortTestCase> small_cases;
+    small_cases.push_back(make_test_case("пустой массив", {}));
+    small_cases.push_back(make_test_case("один элемент", {42}));
+    small_cases.push_back(make_test_case("два по возрастанию", {1, 2}));
+    small_cases.push_back(make_test_case("два по убыванию", {2, 1}));
+    small_cases.push_back(make_test_case("одинаковые элементы", {5, 5, 5}));
+    small_cases.push_back(make_test_case(
+        "смешанные числа", {5, -1, 4, 2, 2, 8, 0}));
+    small_cases.push_back(make_test_case(
+        "уже отсортирован", {-5, -2, 0, 1, 4, 9}));
+    small_cases.push_back(make_test_case(
+        "обратный порядок", {9, 4, 1, 0, -2, -5}));
+    small_cases.push_back(make_test_case(
+        "крайние значения",
+        {numeric_limits<int>::max(), 3, 3, -1, 0,
+         numeric_limits<int>::min(), 3, -1}));
+
+    for (const SortTestCase& test : small_cases) {
+        for (size_t threads : {size_t{1}, size_t{2}, size_t{4}}) {
+            if (!check_sort(test, threads)) {
+                return false;
+            }
+        }
+    }
+
+    constexpr size_t large_size = 500000;
+    vector<SortTestCase> large_cases;
+
+    vector<int> ascending(large_size);
+    vector<int> descending(large_size);
+    vector<int> equal(large_size, 7);
+    vector<int> few_unique(large_size);
+    vector<int> almost_sorted(large_size);
+
+    for (size_t i = 0; i < large_size; ++i) {
+        ascending[i] = static_cast<int>(i);
+        descending[i] = static_cast<int>(large_size - i);
+        few_unique[i] = static_cast<int>(i % 17) - 8;
+        almost_sorted[i] = static_cast<int>(i);
+    }
+    for (size_t i = 1000; i < large_size; i += 1000) {
+        swap(almost_sorted[i - 1], almost_sorted[i]);
+    }
+
+    large_cases.push_back(make_test_case(
+        "большой отсортированный", move(ascending)));
+    large_cases.push_back(make_test_case(
+        "большой обратный", move(descending)));
+    large_cases.push_back(make_test_case(
+        "большой одинаковый", move(equal)));
+    large_cases.push_back(make_test_case(
+        "большой с повторами", move(few_unique)));
+    large_cases.push_back(make_test_case(
+        "почти отсортированный", move(almost_sorted)));
+    large_cases.push_back(make_test_case(
+        "случайный полный диапазон",
+        random_data(large_size, numeric_limits<int>::min(),
+                    numeric_limits<int>::max())));
+    large_cases.push_back(make_test_case(
+        "случайный с повторами", random_data(large_size, -100, 100)));
+
+    for (const SortTestCase& test : large_cases) {
+        if (!check_sort(test, 4)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static double benchmark_one(
+    size_t size,
+    mt19937::result_type seed,
+    size_t threads
+) {
+    mt19937 generator(seed);
+    uniform_int_distribution<int> distribution(
+        numeric_limits<int>::min(), numeric_limits<int>::max());
+    vector<int> data(size);
+    for (int& value : data) {
+        value = distribution(generator);
     }
 
     const auto begin = chrono::steady_clock::now();
@@ -127,17 +155,19 @@ static double benchmark_one(size_t size, uint64_t seed, size_t threads) {
     return chrono::duration<double>(end - begin).count();
 }
 
-static double benchmark_series(size_t size, size_t runs, size_t threads) {
+static double benchmark_series(
+    size_t size,
+    size_t threads,
+    const vector<mt19937::result_type>& seeds
+) {
     double sum = 0.0;
-    for (size_t run = 0; run < runs; ++run) {
-        const uint64_t seed =
-            0x243f6a8885a308d3ULL + run * 0x9e3779b97f4a7c15ULL;
-        const double seconds = benchmark_one(size, seed, threads);
+    for (size_t run = 0; run < seeds.size(); ++run) {
+        const double seconds = benchmark_one(size, seeds[run], threads);
         sum += seconds;
         cout << (threads == 1 ? "seq" : "par") << " запуск " << run + 1
                   << ": " << seconds << " с\n";
     }
-    const double avg = sum / runs;
+    const double avg = sum / seeds.size();
     cout << (threads == 1 ? "seq" : "par") << " среднее: " << avg << " с\n";
     return avg;
 }
@@ -155,9 +185,15 @@ static int run_benchmark(int argc, char** argv) {
     if (size == 0 || runs == 0 || threads <= 1) return 2;
     cout << "Элементов: " << size << ", запусков: " << runs
               << ", потоков: " << threads << '\n';
-    
-    const double seq = benchmark_series(size, runs, 1);
-    const double par = benchmark_series(size, runs, threads);
+
+    random_device device;
+    vector<mt19937::result_type> seeds(runs);
+    for (mt19937::result_type& seed : seeds) {
+        seed = device();
+    }
+
+    const double seq = benchmark_series(size, 1, seeds);
+    const double par = benchmark_series(size, threads, seeds);
     const double speedup = seq / par;
     cout << "Ускорение: " << speedup << "\n";
 
