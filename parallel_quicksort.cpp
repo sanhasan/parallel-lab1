@@ -12,94 +12,69 @@ using namespace std;
 
 static constexpr size_t SEQ_BLOCK = 1 << 17;
 
-struct SortedRange {
-    size_t left;
-    size_t right;
-    int* storage;
-};
-
-vector<SortedRange> quick_sort_impl(
+void quick_sort_impl(
     int* input,
     int* output,
     size_t left,
-    size_t right
+    size_t right,
+    bool write_to_out
 ) {
     const size_t n = right - left;
 
     if (n == 0) {
-        return {};
+        return;
     } else if (n <= SEQ_BLOCK) {
-        quick_sort_seq(input, left, right);
-        return {{left, right, input}};
+        if (write_to_out) {
+            copy(input + left, input + right, output + left);
+
+            quick_sort_seq(output, left, right);
+        } else {
+            quick_sort_seq(input, left, right);
+        }
+        return;
     }
 
-    const int pivot = utils::median(input[left], input[(left + right) / 2], input[right - 1]);
+    const int pivot = utils::median(
+        input[left], input[(left + right) / 2], input[right - 1]);
 
     utils::PartitionResult partition =
         utils::partition(input, output, left, right, pivot);
 
     if (partition.total_equal == n) {
-        return {{left, right, input}};
+        if (write_to_out) {
+            utils::fill(output + left, output + right, pivot);
+        }
+        return;
     }
 
-    vector<SortedRange> left_ranges, right_ranges;
     const size_t middle_begin = left + partition.total_less;
     const size_t middle_end = middle_begin + partition.total_equal;
 
+    if (!write_to_out) {
+        utils::fill(input + middle_begin, input + middle_end, pivot);
+    }
+
     parlay::par_do(
         [&] {
-            left_ranges = quick_sort_impl(
+            quick_sort_impl(
                 output, input,
                 left,
-                middle_begin
+                middle_begin,
+                !write_to_out
             );
         },
         [&] {
-            right_ranges = quick_sort_impl(
+            quick_sort_impl(
                 output, input,
                 middle_end,
-                right
+                right,
+                !write_to_out
             );
         }
     );
-
-    vector<SortedRange> ranges;
-    ranges.reserve(left_ranges.size() + right_ranges.size() + 1);
-
-    const auto append = [&](const SortedRange& range) {
-        if (!ranges.empty()
-            && ranges.back().right == range.left
-            && ranges.back().storage == range.storage) {
-            ranges.back().right = range.right;
-        } else {
-            ranges.push_back(range);
-        }
-    };
-
-    for (const SortedRange& range : left_ranges) {
-        append(range);
-    }
-    append({middle_begin, middle_end, output});
-    for (const SortedRange& range : right_ranges) {
-        append(range);
-    }
-
-    return ranges;
 }
 
 void quick_sort_par(vector<int>& data) {
     unique_ptr<int[]> out(new int[data.size()]);
-    vector<SortedRange> ranges =
-        quick_sort_impl(data.data(), out.get(), 0, data.size());
-
-    parlay::parallel_for(0, ranges.size(), [&](size_t r) {
-        const SortedRange& range = ranges[r];
-        if (range.storage == data.data()) {
-            return;
-        }
-
-        for (size_t i = range.left; i < range.right; ++i) {
-            data[i] = range.storage[i];
-        }
-    }, 1);
+    quick_sort_impl(data.data(), out.get(), 0, data.size(), false);
 }

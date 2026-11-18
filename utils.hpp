@@ -20,6 +20,13 @@ inline int median(int a, int b, int c) {
     return a;
 }
 
+inline void fill(int* begin, int* end, int value) {
+    const size_t size = end - begin;
+    parlay::parallel_for(0, size, [&](size_t i) {
+        begin[i] = value;
+    }, 1);
+}
+
 static constexpr size_t BLOCK_SIZE = 1 << 13;
 
 struct BlockInfo {
@@ -34,7 +41,7 @@ struct PartitionResult {
 };
 
 inline PartitionResult partition(
-    const int* input,
+    int* input,
     int* output,
     size_t left,
     size_t right,
@@ -42,6 +49,7 @@ inline PartitionResult partition(
 ) {
     const size_t n = right - left;
     const size_t blocks = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
     vector<BlockInfo> block_info(blocks);
     PartitionResult result{0, 0};
 
